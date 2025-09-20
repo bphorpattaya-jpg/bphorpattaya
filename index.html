@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>โปรแกรมจัดการตารางการผ่าตัด</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 8px;
+            text-align: left;
+            white-space: nowrap;
+        }
+        th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .text-red {
+            color: #ef4444;
+        }
+        .selected-row {
+            background-color: #e5e7eb;
+        }
+        .message-box {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #48bb78;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: opacity 0.5s ease-in-out;
+            opacity: 0;
+            z-index: 1000;
+        }
+        .message-box.show {
+            opacity: 1;
+        }
+        .text-gray {
+            color: #9ca3af;
+        }
+        .bg-gray-200-important {
+            background-color: #e5e7eb !important;
+        }
+        
+        /* Styles for fullscreen mode */
+        body.fullscreen-mode .max-w-7xl {
+            max-width: 100%;
+            margin: 0;
+            padding: 24px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        body.fullscreen-mode .table-container {
+            overflow-x: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        body.fullscreen-mode #scheduleTable {
+            width: 100%;
+            flex-grow: 1;
+        }
+
+        body.fullscreen-mode #scheduleTable th,
+        body.fullscreen-mode #scheduleTable td {
+            white-space: normal;
+        }
+
+        /* Hide Status column in fullscreen mode */
+        body.fullscreen-mode #scheduleTable th:nth-child(19),
+        body.fullscreen-mode #scheduleTable td:nth-child(19) {
+            display: none;
+        }
+    </style>
+</head>
+<body class="p-6">
+
+    <div class="max-w-7xl mx-auto bg-white rounded-lg shadow-lg p-6">
+        <!-- User Info -->
+        <div class="mb-4 text-sm text-gray-500">
+            <p>User ID: <span id="userIdDisplay">Loading...</span></p>
+        </div>
+
+        <!-- Table header and controls -->
+        <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center space-x-2">
+                <button onclick="window.changeDate(-1)" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h1 class="text-xl font-bold text-gray-800">
+                    ตารางการผ่าตัดโรงพยาบาลกรุงเทพพัทยา <span id="currentDateDisplay"></span>
+                </h1>
+                <button onclick="window.changeDate(1)" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <div class="flex items-center space-x-4 text-gray-600">
+                <span id="currentTime" class="text-sm"></span>
+            </div>
+        </div>
+
+        <!-- Table to display data -->
+        <div class="table-container">
+            <table id="scheduleTable">
+                <thead>
+                    <tr>
+                        <th class="bg-gray-200" onclick="window.sortTable(0)">Time</th>
+                        <th class="bg-gray-200">Room</th>
+                        <th class="bg-gray-200">HN</th>
+                        <th class="bg-gray-200">Age</th>
+                        <th class="bg-gray-200">Estimate</th>
+                        <th class="bg-gray-200">Diagnosis</th>
+                        <th class="bg-gray-200">Operation</th>
+                        <th class="bg-gray-200">Surgeon</th>
+                        <th class="bg-gray-200">Ass surgeon</th>
+                        <th class="bg-gray-200">Anes</th>
+                        <th class="bg-gray-200">Type</th>
+                        <th class="bg-gray-200">AN</th>
+                        <th class="bg-gray-200">AAN</th>
+                        <th class="bg-gray-200">PNA</th>
+                        <th class="bg-gray-200">Assistant</th>
+                        <th class="bg-gray-200">Scrub</th>
+                        <th class="bg-gray-200">circulate1</th>
+                        <th class="bg-gray-200">circulate2</th>
+                        <th class="bg-gray-200">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Rows will be created by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Action buttons -->
+        <div class="flex justify-center mt-6 space-x-4">
+            <button onclick="window.addNewRow()" class="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition-colors">
+                <i class="fas fa-plus mr-2"></i>เพิ่มเคสผ่าตัด
+            </button>
+            <button onclick="window.addImplantNoteRow()" class="px-4 py-2 bg-purple-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-colors">
+                <i class="fas fa-comment-dots mr-2"></i>เพิ่มข้อมูลเพิ่มเติม
+            </button>
+            <button onclick="window.deleteSelectedRow()" class="px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition-colors">
+                <i class="fas fa-trash-alt mr-2"></i>ลบ
+            </button>
+            <button id="fullscreenButton" onclick="window.toggleFullScreen()" class="px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition-colors">
+                <i id="fullscreenIcon" class="fas fa-expand mr-2"></i><span id="fullscreenText">ขยายเต็มหน้าจอ</span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Notification message box -->
+    <div id="messageBox" class="message-box"></div>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        setLogLevel('debug');
+        
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let currentDate = new Date();
+        let selectedRow = null;
+        let db, auth, userId;
+        
+        // Personnel lists for dropdowns
+        const personnelList = [
+            'วรินดา ศรีพูแพน', 'พิรฎา นามวงษ์', 'กมลทิพย์ ชินวัง', 'จุฬารัตน์ สุทธิโส', 'อรสุวีร์ แสนสวัสดิ์', 'ศศิวิมล สุขีชิต', 'นิธิยา เลาหชัยนันท์', 'ปิยะมาศ เอี่ยมเอก', 'ชนพิชา กมลผาด', 'สิริพร บุตรหงษ์', 'ณัฐภรณ์ ไตรยศ', 'วันวิสา โทอุดทา', 'สรัญญา เทียงดาห์', 'รามบุตร สุดใจ', 'ศุภชัย พิลาเท่า', 'ทวีศักดิ์ สวนสวรรค์', 'สรวิทย์ จงกล', 'กีรติ ทุมชะ', 'สังวรณ์ บุญประภา', 'อังคณา กาเเสน', 'จุฬีรัตน์ สายนภา', 'ผ่องอำไพ หงทับ', 'อรทัย ธานีพูน', 'พิมพ์ชนก กางรัมย์', 'อรนิษา มีมล์', 'ชลดา ทองลาด', 'บัณฑิตา ชนะชัย', 'เกตสดี ชวดทอง', 'อชิรญา ราชีคมน์', 'ฐิติมา ขอนโพธิ์', 'พิชญา วิเชียรมงคล', 'ภิญโญ เทศรักษ์', 'นภาภรณ์ จันทร์อยู่จริง', 'สมหมาย เกิดแสงสุริยงค์', 'ผู้แทนบริษัท'
+        ];
+
+        // AN personnel list for dropdowns
+        const anPersonnelList = [
+            'เฉลิม งามหยดย้อย', 'กัญณ์ชณาภ์ ธัญญาภัทรวัฒน์', 'วรินท์ศยา กล้าหาญ', 'เมธาวี เพิ่มสวัสดิ์ชัย', 'ชิดชนก จิรพิทยาวาณิชย์', 'ยุพารัตน์ สายโรจน์พันธ์', 'เฌอลิญญ์ ชาลีดี', 'สุกัญญา สามงามไกร', 'กฤชยานีย์ ธนฉัตรชัยวงศ์', 'ลลิภัสร์ พิชญโรจนพงศ์', 'ปวีณา จันทร์ต๊ะ', 'พิชญา ชูบุตร', 'เครือวัลย์ พาทองทวด', 'นันทิตา ปักเคทาติ', 'ชนกานต์ เอมลับ', 'กัญญารัตน์ พันธมุย', 'นนทพัฒน์ ลีพิมพ์'
+        ];
+
+        // Function to generate options for dropdowns
+        function generatePersonnelDropdown(list, selectedValue = '') {
+            let options = '<option value="">- เลือก -</option>';
+            list.forEach(name => {
+                const firstName = name.split(' ')[0];
+                options += `<option value="${name}" ${name === selectedValue ? 'selected' : ''}>${firstName}</option>`;
+            });
+            return options;
+        }
+
+        // Function to show a notification message
+        function showMessage(message, duration = 3000) {
+            const msgBox = document.getElementById('messageBox');
+            msgBox.textContent = message;
+            msgBox.classList.add('show');
+            setTimeout(() => {
+                msgBox.classList.remove('show');
+            }, duration);
+        }
+        
+        // Helper function to update a specific field in a Firestore document
+        async function updateDocumentField(docId, fieldName, value) {
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', docId);
+                await updateDoc(docRef, { [fieldName]: value });
+            } catch (e) {
+                console.error("Error updating document field:", e);
+                showMessage('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+            }
+        }
+
+        // Function to handle changes in editable cells (onblur event)
+        window.handleCellChange = function(element, fieldName) {
+            const docId = element.closest('tr').dataset.docId;
+            const value = element.textContent.trim();
+            updateDocumentField(docId, fieldName, value);
+        }
+
+        // Function to handle changes in select elements (onchange event)
+        window.handleSelectChange = function(element, fieldName) {
+            const docId = element.closest('tr').dataset.docId;
+            const value = element.value;
+            updateDocumentField(docId, fieldName, value);
+            // Re-apply styles based on the new status
+            if (fieldName === 'status') {
+                window.updateStatus(element);
+            }
+        }
+        
+        // Function to delete the selected row
+        window.deleteSelectedRow = async function() {
+            if (!selectedRow) {
+                showMessage('กรุณาเลือกเคสที่ต้องการลบ');
+                return;
+            }
+
+            const docId = selectedRow.dataset.docId;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', docId));
+                showMessage('ลบเคสที่เลือกแล้ว');
+                selectedRow = null; // Clear selected row after deletion
+            } catch (e) {
+                console.error("Error removing document: ", e);
+                showMessage('เกิดข้อผิดพลาดในการลบข้อมูล');
+            }
+        }
+        
+        // Function to update the row's style based on status
+        window.updateStatus = function(selectElement) {
+            const row = selectElement.closest('tr');
+            const rowStatus = selectElement.value;
+            
+            // Clear existing text and background colors
+            row.querySelectorAll('td').forEach(cell => {
+                cell.classList.remove('text-red', 'text-gray');
+            });
+            row.classList.remove('bg-gray-200-important');
+            
+            // Apply new colors based on status
+            if (rowStatus === 'new' || rowStatus === 'emergency') {
+                row.querySelectorAll('td').forEach(cell => {
+                    cell.classList.add('text-red');
+                });
+            } else if (rowStatus === 'cancel') {
+                row.querySelectorAll('td').forEach(cell => {
+                    cell.classList.add('text-gray');
+                });
+                row.classList.add('bg-gray-200-important');
+            } else if (rowStatus === 'done') {
+                row.classList.add('bg-gray-200-important');
+            }
+        }
+
+        // Function to add a new case row
+        window.addNewRow = async function() {
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'schedules'), {
+                    type: "case",
+                    time: "",
+                    room: "",
+                    hn: "",
+                    age: "",
+                    estimate: "",
+                    diagnosis: "",
+                    operation: "",
+                    surgeon: "",
+                    assSurgeon: "",
+                    anes: "",
+                    type_op: "",
+                    an: "",
+                    aan: "",
+                    pna: "",
+                    assistant: "",
+                    scrub: "",
+                    circulate1: "",
+                    circulate2: "",
+                    status: "new",
+                    date: currentDate.toISOString().slice(0, 10),
+                    id: crypto.randomUUID()
+                });
+                showMessage('เพิ่มเคสใหม่แล้ว');
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                showMessage('เกิดข้อผิดพลาดในการเพิ่มข้อมูล');
+            }
+        }
+
+        // Function to add a new note row under the selected case
+        window.addImplantNoteRow = async function() {
+            if (!selectedRow || selectedRow.dataset.type !== 'case') {
+                showMessage('กรุณาเลือกเคสที่ต้องการเพิ่มข้อมูล');
+                return;
+            }
+
+            const docId = selectedRow.dataset.docId;
+
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'schedules'), {
+                    parentId: docId,
+                    type: "note",
+                    content: "",
+                    date: currentDate.toISOString().slice(0, 10),
+                    id: crypto.randomUUID()
+                });
+                
+                selectedRow.classList.remove('selected-row');
+                selectedRow = null;
+                showMessage('เพิ่มช่องข้อมูลเพิ่มเติมแล้ว');
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                showMessage('เกิดข้อผิดพลาดในการเพิ่มข้อมูล');
+            }
+        }
+
+        // Function to create a table row from data
+        function createRow(data) {
+            const row = document.createElement('tr');
+            row.dataset.type = data.type;
+            row.dataset.docId = data.docId;
+
+            if (data.type === 'case') {
+                row.dataset.id = data.id;
+                row.innerHTML = `
+                    <td data-sort-value="${data.time ? data.time.replace('.', ':') : ''}" contenteditable="true" onblur="window.handleCellChange(this, 'time')">${data.time || ''}</td>
+                    <td contenteditable="true" onblur="window.handleCellChange(this, 'room')">${data.room || ''}</td>
+                    <td><span class="text-blue-600" contenteditable="true" onblur="window.handleCellChange(this, 'hn')">${data.hn || ''}</span></td>
+                    <td contenteditable="true" onblur="window.handleCellChange(this, 'age')">${data.age || ''}</td>
+                    <td contenteditable="true" onblur="window.handleCellChange(this, 'estimate')">${data.estimate || ''}</td>
+                    <td contenteditable="true" onblur="window.handleCellChange(this, 'diagnosis')">${data.diagnosis || ''}</td>
+                    <td contenteditable="true" onblur="window.handleCellChange(this, 'operation')">${data.operation || ''}</td>
+                    <td contenteditable="true" onblur="window.handleCellChange(this, 'surgeon')">${data.surgeon || ''}</td>
+                    <td contenteditable="true" onblur="window.handleCellChange(this, 'assSurgeon')">${data.assSurgeon || ''}</td>
+                    <td contenteditable="true" onblur="window.handleCellChange(this, 'anes')">${data.anes || ''}</td>
+                    <td contenteditable="true" onblur="window.handleCellChange(this, 'type_op')">${data.type_op || ''}</td>
+                    <td><select onchange="window.handleSelectChange(this, 'an')">${generatePersonnelDropdown(anPersonnelList, data.an)}</select></td>
+                    <td><select onchange="window.handleSelectChange(this, 'aan')">${generatePersonnelDropdown(anPersonnelList, data.aan)}</select></td>
+                    <td><select onchange="window.handleSelectChange(this, 'pna')">${generatePersonnelDropdown(anPersonnelList, data.pna)}</select></td>
+                    <td><select onchange="window.handleSelectChange(this, 'assistant')">${generatePersonnelDropdown(personnelList, data.assistant)}</select></td>
+                    <td><select onchange="window.handleSelectChange(this, 'scrub')">${generatePersonnelDropdown(personnelList, data.scrub)}</select></td>
+                    <td><select onchange="window.handleSelectChange(this, 'circulate1')">${generatePersonnelDropdown(personnelList, data.circulate1)}</select></td>
+                    <td><select onchange="window.handleSelectChange(this, 'circulate2')">${generatePersonnelDropdown(personnelList, data.circulate2)}</select></td>
+                    <td>
+                        <select onchange="window.handleSelectChange(this, 'status')">
+                            <option value="scheduled" ${data.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
+                            <option value="no-schedule" ${data.status === 'no-schedule' ? 'selected' : ''}>No Schedule</option>
+                            <option value="in-progress" ${data.status === 'in-progress' ? 'selected' : ''}>In progress</option>
+                            <option value="done" ${data.status === 'done' ? 'selected' : ''}>Done</option>
+                            <option value="new" ${data.status === 'new' ? 'selected' : ''}>New</option>
+                            <option value="emergency" ${data.status === 'emergency' ? 'selected' : ''}>Emergency</option>
+                            <option value="cancel" ${data.status === 'cancel' ? 'selected' : ''}>Cancel</option>
+                        </select>
+                    </td>
+                `;
+                row.addEventListener('click', () => {
+                    if (selectedRow) {
+                        selectedRow.classList.remove('selected-row');
+                    }
+                    row.classList.add('selected-row');
+                    selectedRow = row;
+                });
+                
+                // Set initial row color based on status
+                if (data.status === 'new' || data.status === 'emergency') {
+                    row.querySelectorAll('td').forEach(cell => {
+                        cell.classList.add('text-red');
+                    });
+                } else if (data.status === 'cancel') {
+                    row.querySelectorAll('td').forEach(cell => {
+                        cell.classList.add('text-gray');
+                    });
+                    row.classList.add('bg-gray-200-important');
+                } else if (data.status === 'done') {
+                     row.classList.add('bg-gray-200-important');
+                }
+            } else if (data.type === 'note') {
+                row.dataset.id = data.id;
+                row.dataset.parentId = data.parentId;
+                row.innerHTML = `
+                    <td colspan="19" contenteditable="true" onblur="window.handleCellChange(this, 'content')" class="bg-gray-100 italic text-gray-700 p-4">${data.content || ''}</td>
+                `;
+                row.addEventListener('click', () => {
+                     if (selectedRow) {
+                        selectedRow.classList.remove('selected-row');
+                    }
+                    row.classList.add('selected-row');
+                    selectedRow = row;
+                });
+            }
+            return row;
+        }
+
+        // Function to load data from Firestore
+        window.loadData = function() {
+            const tableBody = document.querySelector('#scheduleTable tbody');
+            const collectionPath = `artifacts/${appId}/public/data/schedules`;
+            const q = query(collection(db, collectionPath), where("date", "==", currentDate.toISOString().slice(0, 10)));
+            
+            onSnapshot(q, (querySnapshot) => {
+                const fetchedData = [];
+                querySnapshot.forEach((doc) => {
+                    fetchedData.push({ ...doc.data(), docId: doc.id });
+                });
+
+                // Sort cases in memory
+                const sortedCases = fetchedData.filter(item => item.type === 'case').sort((a, b) => {
+                    const aTime = (a.time || '').replace('.', ':');
+                    const bTime = (b.time || '').replace('.', ':');
+                    return aTime.localeCompare(bTime);
+                });
+                
+                // Re-assemble the full data with notes
+                const fullSortedData = [];
+                sortedCases.forEach(caseItem => {
+                    fullSortedData.push(caseItem);
+                    const notes = fetchedData.filter(item => item.type === 'note' && item.parentId === caseItem.docId);
+                    notes.forEach(note => fullSortedData.push(note));
+                });
+                
+                // Render data on the UI
+                tableBody.innerHTML = '';
+                fullSortedData.forEach(item => {
+                    const newRow = createRow(item);
+                    tableBody.appendChild(newRow);
+                });
+            });
+
+            // Update date display
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('currentDateDisplay').textContent = currentDate.toLocaleDateString('th-TH', options);
+        }
+
+        // Function to change the date
+        window.changeDate = function(days) {
+            currentDate.setDate(currentDate.getDate() + days);
+            loadData();
+        }
+
+        // Function to update the clock
+        window.updateClock = function() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const seconds = now.getSeconds().toString().padStart(2, '0');
+            document.getElementById('currentTime').textContent = `${hours}:${minutes}:${seconds}`;
+        }
+        
+        // Function to toggle fullscreen mode
+        window.toggleFullScreen = function() {
+            const button = document.getElementById('fullscreenButton');
+            const icon = document.getElementById('fullscreenIcon');
+            const text = document.getElementById('fullscreenText');
+            
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    document.body.classList.add('fullscreen-mode');
+                    icon.classList.remove('fa-expand');
+                    icon.classList.add('fa-compress');
+                    text.textContent = "ย่อหน้าจอ";
+                    showMessage('เข้าสู่โหมดเต็มหน้าจอแล้ว');
+                }).catch(err => {
+                    showMessage(`ไม่สามารถเข้าสู่โหมดเต็มหน้าจอได้: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    document.body.classList.remove('fullscreen-mode');
+                    icon.classList.remove('fa-compress');
+                    icon.classList.add('fa-expand');
+                    text.textContent = "ขยายเต็มหน้าจอ";
+                    showMessage('ออกจากโหมดเต็มหน้าจอแล้ว');
+                });
+            }
+        }
+        
+        // Load data and start clock on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            await new Promise((resolve) => {
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('userIdDisplay').textContent = userId;
+                    } else if (initialAuthToken) {
+                        try {
+                            const userCredential = await signInWithCustomToken(auth, initialAuthToken);
+                            userId = userCredential.user.uid;
+                            document.getElementById('userIdDisplay').textContent = userId;
+                        } catch (error) {
+                            console.error("Custom token sign-in failed:", error);
+                            await signInAnonymously(auth);
+                        }
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    loadData();
+                    resolve();
+                });
+            });
+
+            updateClock();
+            setInterval(updateClock, 1000);
+        });
+    </script>
+</body>
+</html>
